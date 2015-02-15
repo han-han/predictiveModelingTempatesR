@@ -1,0 +1,22 @@
+---
+title: "Regression Template in R"
+author: "Sophia Gao"
+date: "February 15, 2015"
+output: html_document
+---
+
+```{r setUp,render=False}
+# libraries
+library(caret)
+
+# project path
+folderPath = "/Desktop/PredictiveModelingTemplates/regression"
+setwd(folderPath)
+dataRead = "/data/test.csv"
+dataWrite = "/data/output.csv"
+```
+
+```{r importData,render=False}
+
+```
+
