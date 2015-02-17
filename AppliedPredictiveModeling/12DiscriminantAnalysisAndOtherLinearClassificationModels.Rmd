@@ -1,0 +1,31 @@
+---
+title: "Discriminant Analysis and Other Linear Classification Models"
+author: "Sophia Gao"
+date: "February 7, 2015"
+output: html_document
+---
+
+## Logistic Regression
+- Idea
+    + Maximize the binomial likelihood function
+    + Belongs to GLM
+        + Distribution of Target can be a distribution in exponential family
+        + Linear Predictor
+        + Link function
+            + They are linear in the sense that some function of the outcome is modeled using the linear predictors, such as the log odds. 
+            + even though the equation is nonlinear, it produces linear classification boundary. 
+    + Formal statistical hypothesis tests can be conducted to assess whether the slop coefficients for each predictor are statistically significant. 
+    + A Z statistic is commonly used for these models, and is essentially a measure of the signal-to-noise  ratio: the estimated slope is divided by its corresponding standard error. 
+    + Using this statistic, the predictors can be ranked to understand which terms had the largest effect on the model. 
+
+- Advantages:
+    + Simplicity
+    + Understand the results
+
+- Disadvantages:
+    + Require the user to identify effective representations of the predictor data that yield best performance 
+
+- Linear Discriminant Analysis
+    + Fisher Linear Discriminant Analysis
+        + Linear combinations of the predictors such that the between-group variance was maximized relative to the within-group variance and maximize the signal-to-noise ratio. 
+        

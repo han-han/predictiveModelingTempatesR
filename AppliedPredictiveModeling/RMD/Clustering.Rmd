@@ -1,0 +1,250 @@
+---
+title: "Clustering"
+author: "Sophia Gao"
+date: "February 16, 2015"
+output: html_document
+---
+
+## Introduction
+* Find subgroups, or clusters, in a data set.
+* Examples: 
+    + An online shopping site might try to identify groups of shoppers with similar browsing and purchase histories, as well as items that are of particular interest to the shoppers within each group. 
+    + A search engine might choose what search results to display to a particular individual based on the click histories of other individuals with similar search patterns. 
+    + Marketing: We might have access to a large number of measurements for a large number of people. Our goal is to perform market segmentation by identifying subgroups of people who might be more receptive to a particular form of advertising, or more likely to purchase a particular product. The task of performing market segmentation amouts to clustering the people in the data set.
+* Goal: When we cluster the observations of a data set, we seek to partition them into distinct groups so that the observations within each group are quite similar to each other, while observations in different groups are quite different from each other. 
+* How: We must define what it means for two or more observations to be similar or different. Indeed, this is often a domain-specific consideration.
+* We can cluster observations on the basis of the features in order to identify subgroups among the observations, or we can cluster features on the basis of the observations in order to discover subgroups among the features. 
+* Challenge: There is no easy way to check our work because we don't know the true answer. 
+* Both clusering and PCA seek to simplify the data via a small number of summaries, but their mechanisms are different:
+    + PCA looks to find a low-dimensional representation of the observations that explain a good fraction of the variance.
+    + Clustering looks to find homogeneous subgroups among the observations. 
+
+## K-Means Clustering
+* A simple and elegant approach for partitioning a data set into K distinct, non-overlapping clusters. 
+* First specify the desired number of clusters K.
+* K-means algorithm will assign each observation to exactly one of the K clusters. 
+* Idea: a good clustering is one for which the within-cluster variation is as small as possible. 
+* Algorithm:
+    + 1. Randomly assign a number, from 1 to K, to each of the observations. These serve as initial cluster assignments for the observations.
+    + 2. Iterate until the cluster assignments stop chaning:
+        + (a) For each of the K clusters, computer the cluster centroid. The kth cluster centroid is the vector of the p feature means for the observations in the kth cluster.
+        + (b) Assign each observation to the cluster whose centroid is closest.
+* K-means finds a local rather than a global optimum, the results obtained will depend on the intial cluster assignment of each observation. For this reason, it is important to run the algorithm multiple times from different random initial configurations.
+* Then one selects the best solution, that for which the objective is smallest. 
+* Advantages:
+    + K-means clustering can handle larger datasets than hierarchical cluster approaches. 
+* Disadvantages:
+    + The use of means implies that all variables must be continuous and the approach can be severely affected by outliers. They also perform poorly in the presence of non-convex clusters.
+    
+
+## Application in R
+Simulate the data
+```{r}
+set.seed(2)
+x <- matrix(rnorm(50*2), ncol = 2)
+x[1:25,1] <- x[1:25,1] + 3
+x[1:25,2] <- x[1:25,2] - 4
+```
+
+Perform K-means clustering
+* If a value of nstart greater than one is used, then K-means clustering will be performed using multiple random assignments in Step 1, and hte kmeans() function will report only the best results. 
+* Stronly recommend running K-means clustering with a large value of nstart, such as 20 or 50.
+
+```{r}
+set.seed(1234)
+k = 2
+km <- kmeans(x, k, iter.max = 20, nstart = 20)
+km
+plot(x, col =(km$cluster+1), main = paste("K-Means Clustering Results with K =",k),
+     xlab = "", ylab="", pch =20, cex = 1)
+```
+
+## Hierarchical clustering
+* a tree-like visual representation of the observations
+* view at once the clusterings obtained for each possible number of clusters, from 1 to n and look at the dendrogram and select by eye a sensible number of clusters, based on the heights of the fusion and the number of clusters desired. 
+* bottom-up clustering
+* We cannot draw conculsions about the similarity of two boservations based on their proximity along the horizontal axis. Rather, we can draw conclusions about the similarity of two observations based on the location on the vertical axis where braches containing those two observations first are fused. 
+* Algorithm:
+    + 1. Define dissimilarity measure like Euclidean distance
+    + 2. Start out at the bottom of the dendrogram, each of the n observations is treated as its own cluster.
+    + 3. The two clusters that are most similar to each other are then fused so that there now are n - 1 clusters. 
+    + 4. Next the two clusters that are most similar to each other are fused again, so that there now are n - 2 clusters. 
+    + 5. THe algorithm proceeds in this fashion until all the observations belong to one single cluster, and the dendrogram is complete. 
+* Linkage: dissimilarity between two groups of observations. Complete(Max distance), average(Average distance), single(Min distance), and centroid(distance between centroids). Average and Complete Linkage are generally preferred. 
+* Other distance measure: correlation-based distance considers two observations to be similar if their features are highly correlated, even though the observed values may be far apart in terms of Euclidean distance. 
+* Disadvantages:
+    + The term hiererchical refers to the fact that clusters obtained by cutting the dendrogram at a given height are necessarily nested within the clusters obtained by cutting the dendrogram at any greater height. However, on an arbitrary data set, this assumption of hierarchical structure might be unrealistic. For example, suppose that our observations correspond to a group of people with a 50-50 split of males and females, evenly split among Americans, Japanese, and French. 
+* Practical Issues 
+    + Center and Scale ?
+    + What dissimilarity measure should be used?
+    + What type of linkage should be used?
+    + Where should we cut the dendrogram in order to obtain clusters?
+    + Each of these decisions can have a strong impact on the results obtained. In practice, we try several different choices, and look for the one with the most useful or interpretable solution. With thse methods, there is no single right answer --- any solution that exposes some interesting aspects of the data should be considered. 
+    
+## Validating the Clusters Obtained
+There exist a number of techniques for assigning a p-value to a cluster in order to assess whether there is more evidence for the cluster than one would expect due to chance. 
+
+## Other Considerations in Clustering
+* Both K-means and hierarchical clustering will assign each observation to a cluster. However, sometimes this might not be appropriate. Mixture models are an attractive approach for accommodating the presence of such outliers. 
+* We must be careful about how the results of a clustering analysis are reported. These results should not be taken as the absolute truth about a data set. Rather, they should constitute a starting point for the development of a scientific hypothesis and further study, preferably on an independent data set.
+
+## Application in R
+```{r}
+hcComplete <- hclust(dist(x), method = "complete")
+hcAverage <- hclust(dist(x), method = "average")
+hcSingle <- hclust(dist(x), method = "single")
+par(mfrow = c(3,1))
+plot(hcComplete, main = "Complete Linkage", xlab = "", sub = "", cex = .9)
+plot(hcAverage, main = "Average Linkage", xlab = "", sub = "", cex = .9)
+plot(hcSingle, main = "Single Linkage", xlab = "", sub = "", cex = .9)
+```
+
+To determine the cluster labels for each observation associated with a given cut of the dendrogram, we can use the cutree() function:
+```{r}
+cutree(hcComplete, 2)
+cutree(hcAverage, 2)
+cutree(hcSingle, 2)
+```
+
+For this data, complete and average linkage generally separate the observations
+into their correct groups. However, single linkage identifies one point
+as belonging to its own cluster. A more sensible answer is obtained when
+four clusters are selected, although there are still two singletons.
+
+Scale x
+```{r}
+xsc <- scale(x)
+plot(hclust(dist(xsc), method = "complete"), main = "Hierearchical Clustering with Scaled Features")
+```
+
+Correlation-based distance
+* Note: this only makes sense for data with at least three features since the absolute correlation between any two observations with measurements on two features is always 1. 
+```{r}
+x <- matrix(rnorm(30*3), ncol=3)
+dd <- as.dist(1 - cor(t(x)))
+plot(hclust(dd, method = "complete"), main = "Complete Linkage with Correlation-Based Distance", xlab = "", sub = "")
+```
+
+## NCI60 Data Example
+```{r}
+library(ISLR)
+nciLabs <- NCI60$labs
+nciData <- NCI60$data
+```
+
+### PCA
+```{r}
+pr <- prcomp(nciData, scale=TRUE)
+
+Cols <- function(vec){
+    cols <- rainbow(length(unique(vec)))
+    return(cols[as.numeric(as.factor(vec))])
+}
+
+par(mfrow = c(1,2))
+plot(pr$x[,1:2], col = Cols(nciLabs), pch = 19,
+     xlab = "Z1", ylab = "Z2")
+plot(pr$x[,c(1,3)], col = Cols(nciLabs), pch = 19, 
+     xlab = "Z1", ylab = "Z3")
+summary(pr)
+
+pve = 100*pr$sdev^2/sum(pr$sdev^2)
+par(mfrow = c(1,2))
+plot(pve, type = "o", ylab = "PVE", xlab = "Principal Component", col = "blue")
+plot(cumsum(pve), type = "o", ylab = "Cumulative PVE", xlab = "Principal Component", col = "brown3")
+```
+
+We see that together, the first seven principal components explain around 40% of the variance in the data. This is not a huge amount of the variance. However, looking at the scree plot, we see that while each of the first seven principal components explain a substantial amount of variance, there is a marked decrase in the variance explained by futher principal components. That is, there is an elbow in the plot after approximately the seventh principal component. 
+
+### Clustering
+
+#### Hierarchical Clustering
+```{r}
+sdData <- scale(nciData)
+par(mfrow = c(3,1))
+dataDist = dist(sdData)
+plot(hclust(dataDist), labels = nciLabs, main = "Complete Linkage", xlab = "", sub = "", ylab="")
+plot(hclust(dataDist, method = "average"), labels = nciLabs, main = "Average Linkage", xlab = "", sub = "", ylab = "")
+plot(hclust(dataDist, method = "single"), labels = nciLabs, main = "Single Linkage", xlab = "", sub = "", ylab = "")
+```
+
+Complete and average linkage tend to yield more balanced, attractive clusters. For this reason, complete and average linkage are generally preferred to single linkage. 
+```{r}
+hc <- hclust(dist(sdData))
+hcClusters <- cutree(hc,4) # We want 4 groups
+table(hcClusters, nciLabs)
+
+par(mfrow = c(1,1))
+plot(hc, labels = nciLabs)
+abline(h = 139, col = "red")
+```
+`
+#### K-Means
+```{r}
+set.seed(2)
+km <- kmeans(sdData, 4, nstart = 20)
+kmClusters <- km$cluster
+table(kmClusters,hcClusters)
+```
+
+
+#### Perform Hierarchical Clustering on the first few principal component score vectors
+```{r}
+hc <- hclust(dist(pr$x[,1:5]))
+plot(hc, labels = nciLabs, main = " Hierarchical Clustering on Frist Five PCAs")
+table(cutree(hc, 4), nciLabs)
+```
+Sometimes performing clustering on the first few principal component score vectors can give better results than performing clustering on the full data. In this situation, we might view the principal component step as one of denosing the data. 
+
+```{r}
+set.seed(2)
+km <- kmeans(dist(pr$x[,1:5]), 4, nstart = 20)
+kmClusters <- km$cluster
+table(kmClusters,hcClusters)
+```
+
+K-Means Clustering Application II
+```{r}
+par(mfrow = c(1,1))
+
+wssplot <- function(data, nc=15, seed=1234){
+               wss <- (nrow(data)-1)*sum(apply(data,2,var))
+               for (i in 2:nc){
+                    set.seed(seed)
+                    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+                plot(1:nc, wss, type="b", xlab="Number of Clusters",
+                     ylab="Within groups sum of squares")
+               }
+
+```
+
+```{r}
+data(wine, package="rattle")
+rawData <- wine
+df <- scale(wine[-1])
+wssplot(df)
+```
+There is a distinct drop in within groups sum of squares when moving from 1 to 3 clusters. After three clusters, this decrease drops off, suggesting that a 3-cluster solution may be a good fit to the data. 
+
+NbClust
+```{r}
+library(NbClust)
+set.seed(1234)
+nc <- NbClust(df, min.nc = 2, max.nc = 15, method = "kmeans")
+table(nc$Best.n[1,])
+barplot(table(nc$Best.n[1,]), 
+          xlab="Numer of Clusters", ylab="Number of Criteria",
+          main="Number of Clusters Chosen by 26 Criteria")
+```
+14 of 24 criteria provided by the NbClust package suggest a 3-cluster solution. 
+
+A final cluster solution
+```{r}
+set.seed(1234)
+fit.km <- kmeans(df, 3, nstart=25)                           
+fit.km$size
+fit.km$centers  
+
+aggregate(data[-1], by=list(cluster=fit.km$cluster), mean)
+```
+

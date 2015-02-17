@@ -1,0 +1,51 @@
+---
+title: "Introduction to Random Forest"
+author: "Golden Gao"
+date: "February 13, 2015"
+output: html_document
+---
+
+## Introduction 
+Bagging trees improves predictive performance over a single tree by reducing variance of prediction. Generating bootstrap samples introduces a random component into the tree building process. However, if we start with a sufficiently large number of samples and a relationship between predictors and response that can be modeled by a tree may have similar strucutres to each other. This is known as tree correlation. To solve this problem, random forest adds another random compoent which is randomly selecting predictors at each split. 
+
+## Algorithm
+1. Select the number of models to build, m
+2. for i = 1 to m do
+    + Generate a bootstrap sample of the original data
+    + train a tree model on this sample
+        + for each split do
+            + Randomly select k (<P) of the original predictors
+            + Select the best predictor among the k predictors and partition the data
+            + Use typical tree model stopping criteria to determine when a tree is complete (but do not prune)
+        + end
+3. end
+4. Use the average of m predictions to give the forest's prediction
+
+## Tuning Parameters
+1. $m_{try}$: the number of randomly selected predictors, k, to choose from at each split
+2. Breiman recommends setting $m_{try}$ to be one-third of the number of predictors(P)
+3. For the purpose of tuning the $m_{try}$ parameter, since random forests is computationally intensive, we suggest starting with five values of k that are somewhat evenly spaced across the range from 2 to P.
+4. Breiman proved that random forests is protected from over-fitting. The larger the forest, more accurate the model is but more computational burden will incur to train and build the model. As a starting point, we suggest using at least 500 trees. If the cross-validation performance profiles are still improving at 1000 trees, then incorporate more trees until performance levels off. 
+5. Use the out-of-bag error rate would drastically decrease the computational time to turn random forest models comparing to cross-validation.  
+
+## Advantages
+1. Ensemble of strong learners yields an improvement in error rates. 
+2. Combining the attribute of smaller number of predictors with the ability to parallel process tree building makes random forests more computationally efficient than boosting.
+
+## Disadvantages
+1. Difficult to interpret  
+
+## Improvements
+1. CART, or conditional inference trees can be used as the base learner in random forests. 
+
+## Practical Tips
+1. My experience is that the random forest tuning parameter does not have a drastic effect on performance. To get a quick assessment of how well the random froest model performs, the default tuning parameter value for regression (m_{try} = P/3) tends to work well. If there is a desire to maximize performance, tuning this value may result in a slight improvement. 
+
+## Evaluation
+1. Variable Importance
+    + Random Permutation: Randomly permuting the values of each predictor for the out-of-bag sample of one predictor at a time for each tree. The difference in predictive performance between the non-permuted sample and the permuted sample for each predictor is recorded and aggregated across the entire forest. 
+    + Aggregated Measure of improvement in node purity: measure the improvement in node purity based on the performance metric like SSE for each predictor at each occurrence of that predictor accross the forest. These individual improvement values for each predictor are then aggregated across the forest to determine the overall importance for the predictor.
+2. Colinearity 
+    + Dilute the importances of key predictors. For example, suppose a critical predictor had an importance of X. If another predictor is just as critical but is almost perfectly correlated as the first, the importance of these two predictors will be roughly X/2.
+    + [Strobl et al (2007)](http://journal.r-project.org/archive/2009-2/RJournal_2009-2_Strobl~et~al.pdf) developed an alternative approach for calculating importance in random forest models that takes between-predictor correlations into account. 
+

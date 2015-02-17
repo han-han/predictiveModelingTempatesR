@@ -216,16 +216,6 @@ AppliedPredictiveModeling::transparentTheme(trans = 1)
 The advantage of elastic net is that it enables effective regularization via the ridge-type penalty with the feature selection quality of the lasso penalty.
 
 ```{r Elastic-Net}
-enetGrid <- expand.grid(.lambda = c(0,0.01,0.1),
-                        .fraction = seq(.05,1,length = 10))
-set.seed(100)
-enetTune <- train(trainX, trainY,
-                  method = "enet",
-                  tuneGrid = enetGrid,
-                  trControl = ctrl,
-                  preProc = c("center", "scale"))
-
-plot(enetTune)
 ```
 
 ### Generalized Linear Model

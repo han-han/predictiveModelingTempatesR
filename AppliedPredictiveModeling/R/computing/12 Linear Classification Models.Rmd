@@ -1,0 +1,233 @@
+---
+title: "12 Linear Classification Models"
+author: "Sophia Gao"
+date: "February 8, 2015"
+output: html_document
+---
+
+Two general groupings of predictors were created: the set of predictors that contains the full set of binary dummy variables and count data and the reduced set that was filtered for near-zero variance predictors and extremely correlated predictors.
+
+```{r data}
+length(fullSet)
+head(fullSet)
+
+length(reducedSet)
+head(reducedSet)
+```
+
+Diagnose extreme collinearity problems by trim.matrix function in subselect library. 
+```{r}
+reducedCovMat <- cov(training[,reducedSet])
+library(subselect)
+trimmingResults <- trim.matrix(reducedCovMat)
+names(trimmingResults)
+
+trimmingResults$names.discarded
+
+fullCovMat <- cov(training[,fullSet])
+fullSetResults <- trim.matrix(fullCovMat)
+fullSetResults$names.discarded
+```
+
+twoClassSummary in caret calculates the area under the ROC curve, the sensitivity, and the specificity.
+classProbs = TRUE is required.
+```{r}
+ctrl <- trainControl(summaryFunction = twoClassSummary, classProbs = TRUE)
+```
+Build the model on the pre-2008 data and then used the 2008 holdout data to tune the model.
+What is LGOCV?
+```{r}
+ctrl <- trainControl(method = "LGOCV",
+                     summaryFunction = twoClassSummary,
+                     classProbs = TRUE,
+                     index = list(TrainSet = pre2008),
+                     savePredictions = TRUE)
+```
+
+## Logistic Regression
+# The glm function treats the second factor level as the event of interest.
+```{r}
+levels(training$Class)
+modelFit <- glm(Class ~ Day,
+                data = training[pre2008,],
+                family = binomial)
+modelFit
+
+successProbs <- 1 - predict(modelFit, 
+                            newdata=data.frame(Day = c(10,15,300,350)),
+                            type = "response")
+successProbs
+```
+
+
+```{r}
+daySquaredModel <- glm(Class ~ Day + I(Day^2), data = training[pre2008,], family = binomial)
+daySquaredModel
+```
+
+A restricted cubic spline?
+```{r}
+# install.packages("rms")
+library(rms)
+rcsFit <- lrm(Class ~ rcs(Day), data = training[pre2008,])
+rcsFit
+
+dayProfile <- Predict(rcsFit,
+                      ## Specify the range of the plot variable
+                      Day = 0:365,
+                      ## Flip the prediction to get the model for successful grants
+                      fun = function(x) - x)
+plot(dayProfile, ylab = "Log Odds")
+```
+
+Caret
+```{r}
+training$Day2 <- training$Day^2
+fullSet <- c(fullSet, "Day2")
+reducedSet <- c(reducedSet, "Day2")
+
+library(caret)
+set.seed(476)
+lrFull <- train(training[,fullSet], 
+                y = training$Class,
+                method = "glm",
+                metric ="ROC",
+                trControl = ctrl)
+
+lrFull
+```
+
+
+```{r}
+set.seed(476)
+lrReduced <- train(training[,reducedSet],
+                   y = training$Class,
+                   method = "glm",
+                   metric = "ROC",
+                   trControl = ctrl)
+lrReduced
+head(lrReduced$pred)
+```
+
+Confusion Matrix
+```{r}
+install.packages("e1071")
+confusionMatrix(data = lrReduced$pred$pred,
+                reference = lrReduced$pred$obs)
+```
+
+ROC
+```{r}
+library(pROC)
+reducedROC <- roc(response = lrReduced$pred$obs,
+                  predictor = lrReduced$pred$successful,
+                  levels = rev(levels(lrReduced$pred$obs)))
+plot(reducedROC, legacy.axes = TRUE)
+auc(reducedROC)
+```
+
+## Linear Discriminant Analysis
+
+First, center and scale the data
+```{r}
+library(MASS)
+grantPreProcess <- preProcess(training[pre2008,reducedSet])
+grantPreProcess
+
+scaledPred2008 <- predict(grantPreProcess, newdata = training[pre2008, reducedSet])
+scaled2008HoldOut <- predict(grantPreProcess, newdata = training[-pre2008, reducedSet])
+```
+
+Second, LDA model in MASS
+```{r}
+ldaModel <- lda(x = scaledPred2008, grouping = training$Class[pre2008])
+head(ldaModel$scaling)
+ldaHoldOutPredictions <- predict(ldaModel, scaled2008HoldOut)
+```
+
+```{r}
+set.seed(476)
+ldaFit1 <- train(x = training[, reducedSet],
+                 y = training$Class,
+                 method = "lda",
+                 preProcess = c("center","scale"),
+                 metric = "ROC",
+                 trControl = ctrl)
+ldaFit1
+```
+
+```{r}
+ldaTestClasses <- predict(ldaFit1,
+                          newdata = testing[, reducedSet])
+ldaTestProbs <- predict(ldaFit1,
+                        newdata = testing[, reducedSet],
+                        type = "prob")
+```
+
+Partial Least Squares Discriminant Analysis
+A factor variable is used for the outcome.
+```{r}
+library(caret)
+plsdaModel <- plsda(x = training[pre2008,reducedSet],
+                    y = training[pre2008, "Class"],
+                    scale = TRUE,
+                    ## Use Bayes method to compute the probabilities
+                    probMethod = "Bayes",
+                    ## Specify the number of components to model
+                    ncomp = 4)
+## Predict the 2008 hold-out set
+plsPred <- predict(plsdaModel, 
+                   newdata = training[-pre2008,reducedSet])
+head(plsPred)
+
+plsProbs <- predict(plsdaModel, 
+                    newdata = training[-pre2008, reducedSet],
+                    type = "prob")
+head(plsProbs)
+```
+
+```{r}
+set.seed(476)
+plsFit2 <- train(x = training[, reducedSet],
+                 y = training$Class,
+                 method = "pls",
+                 tuneGrid = expand.grid(.ncomp = 1:10),
+                 preProc = c("center","scale"),
+                 metric = "ROC",
+                 trControl = ctrl)
+
+# Compute Variable Importance
+plsImpGrant <- varImp(plsFit2, scale = FALSE)
+plsImpGrant
+
+plot(plsImpGrant, top = 20, scales = list(y = list(cex = .95)))
+```
+
+## Penalized Models
+glment defautls the parameter to alpha = 1, corresponding to a complete lasso penalty
+```{r}
+glmnGrid <- expand.grid(.alpha = c(0, .1, .2, .4, .6, .8, 1),.lambda = seq(.01, .2, length = 40))
+
+set.seed(476)
+glmnTuned <- train(training[,fullSet],
+                   y = training$Class,
+                   method = "glmnet",
+                   tuneGrid = glmnGrid,
+                   preProc = c("center","scale"),
+                   metric ="ROC",
+                   trControl = ctrl)
+
+glmnTuned
+plot(glmnTuned)
+plot(glmnTuned, plotType = "level")
+```
+
+Penalized LDA
+```{r}
+library(sparseLDA)
+sparseLdaModel <- sda(x = as.matrix(training[,fullset],
+                                    y = training$Class,
+                                    lambda = 0.01,
+                                    stop = -6))
+```
+

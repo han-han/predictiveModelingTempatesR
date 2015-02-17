@@ -1,0 +1,45 @@
+---
+title: "Introduction To Boosting"
+author: "Sophia Gao"
+date: "February 14, 2015"
+output: html_document
+---
+
+## Introduction
+**Weak learners were combined into a strong learner.**
+
+## AdaBoost
+* AdaBoost generates a sequence of weak classifiers, where at each iteration the algorithm finds the best classifier based on the current sample weights. Samples that are incorrectly classified in the kth interaction receive more weight in the (k+1)st iteration, while samples that are correctly classified receive less weight in the subsequent iteration.
+* This means that samples that are difficult to classify receive increasingly larger weights until the algorithm identifies a model that correctly classifies these samples. Therefore, each iteration of the algorithm is required to learn a different aspect of the data, focusing on regions that contain difficult-to-classify samples. 
+* At each iteration, a stage weight is computed based on the error rate at that iteration. 
+* The nature of the stage weight described in the algorithm 1 implies that more accurate models have higher positive values and less accurate models have lower negative values. 
+* The overall sequence of weighted classifiers is then combined into an ensemble and has a strong potential to classify better than any of the individual classifiers.
+* Algorithm 1
+    + Let one class be represented with a value of +1 and the other with a value of -1.
+    + Let each sample have the same starting weight (1/n)
+    + for k=1 to K do
+        + Fit a weak classifier using the weighted samples and compute the kth model's misclassification error($err_{k}$)
+        + Compute the kth stage value as $ln((1-err_{k})/err_{k})$
+        + Update the sample weights giving more weight to incorrectly predicted samples and less weight to correctly predicted samples
+    + end
+    + Compute the boosted classifier's prediction for each sample by multiplying the kth stage value by the kth model prediction and adding these quantities across k. If this sum is positive, then classify the sample in the +1 class, otherwise the -1 class.
+    + Note：This is just a weighted sum with weight $ln((1-err_{k})/err_{k})$
+* Boosting can be applied to any classification technique, but classification trees are a popular method for boosting since these can be made into weak learners by restricting the tree depth to create trees with few splits. 
+* Since classification trees are a low bias/high variance technique, the ensemble of trees helps to drive down variance, producing a result that has low bias and low variance. 
+* Low variance methods such as LDA or KNN cannot be greatly improved through boosting. 
+
+Stochastic Gradient Boosting
+* For the classification problem, boosting could be interpreted as a forward stagewise additive model that minimizes an exponential loss function. This framework led to algorithmic generalizations such as Real AdaBoost, Gentle AdaBoost, and LogitBoost. 
+* One formulation of stochastic gradient boosting models an event probability, similar to what we saw in logistic regression which is log odds. See the specific algorithm is algorithm 2
+* Algorithm 2
+    + Initialized all predictions to the sample log-odds: $f_{i}^{(0)} = log/frac(/hat(p))(1-/hat(p))$
+    + for iteration j = 1 ... M do
+        + Compute the residual(i.e. gradient) $z_{i} = y_{i} - /hat(p_{i})$
+        + Randomly sample the training data
+        + Train a tree model on the random subset using the residuals as the outcome
+        + Compute the terminal node estimates of the Pearson residuals:
+            + $r_{i} = /frac(1/n\sum_{i=1}^{n}(y_{i}-/hat(p_{i})))(1/n\sum_{i=1}^{n}/hat(p_{i})(1-/hat(p_{i})))$
+        + Update the current model using $f_{i} = f_{i} + /lambda f_{i}^{(j)}$
+    + end
+* The user can tailor the algorithm more specifically by selecting an appropriate loss function and corresponding gradient. 
+* Shrinkage can be implemented in the final step of Algorithm 2. 

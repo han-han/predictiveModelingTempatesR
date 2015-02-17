@@ -66,8 +66,8 @@ missingRateV[missingRateV>0.01]
 cleanData <- scale(rawData)
 ```
 
-
-K-Means Clustering
+## Clustering
+#### K-Means Clustering
 ```{r}
 wssplot <- function(data, nc=15, seed=1234){
                wss <- (nrow(data)-1)*sum(apply(data,2,var))
@@ -96,14 +96,83 @@ barplot(table(nc$Best.n[1,]),
           xlab="Numer of Clusters", ylab="Number of Criteria",
           main="Number of Clusters Chosen by 26 Criteria")
 ```
+
 14 of 24 criteria provided by the NbClust package suggest a 3-cluster solution. 
 
 A final cluster solution
 ```{r}
 set.seed(1234)
-fit.km <- kmeans(cleanData, 3, nstart=25)                           
-fit.km$size
-fit.km$centers  
-
+km <- kmeans(cleanData, 3, nstart=25)                           
+km$size
+km$centers  
+kmClusters <- km$Clusters
 aggregate(cleanData, by=list(cluster=fit.km$cluster), mean)
 ```
+
+### PCA
+```{r}
+pr <- prcomp(cleanData, scale=TRUE)
+
+
+# Cols <- function(vec){
+#     cols <- rainbow(length(unique(vec)))
+#     return(cols[as.numeric(as.factor(vec))])
+# }
+# 
+# par(mfrow = c(1,2))
+# plot(pr$x[,1:2], col = Cols(nciLabs), pch = 19,
+#      xlab = "Z1", ylab = "Z2")
+# plot(pr$x[,c(1,3)], col = Cols(nciLabs), pch = 19, 
+#      xlab = "Z1", ylab = "Z3")
+
+summary(pr)
+
+pve = 100*pr$sdev^2/sum(pr$sdev^2)
+plot(pve, type = "o", ylab = "PVE", xlab = "Principal Component", col = "blue")
+plot(cumsum(pve), type = "o", ylab = "Cumulative PVE", xlab = "Principal Component", col = "brown3")
+```
+
+We see that together, the first seven principal components explain around 40% of the variance in the data. This is not a huge amount of the variance. However, looking at the scree plot, we see that while each of the first seven principal components explain a substantial amount of variance, there is a marked decrase in the variance explained by futher principal components. That is, there is an elbow in the plot after approximately the seventh principal component. 
+
+```{r}
+set.seed(2)
+pcaKm <- kmeans(dist(pr$x[,1:5]), 4, nstart = 20)
+pcaKmClusters <- pcaKm$cluster
+table(pcaKmClusters,kmClusters)
+
+plot(pt$x[,1:2], asp = 1, col = cutree6)
+```
+
+#### Hierarchical Clustering
+
+Complete and average linkage tend to yield more balanced, attractive clusters. For this reason, complete and average linkage are generally preferred to single linkage. 
+
+New Distance Definition 
+Clustering with mixed variables 
+```{r}
+data(plantTraits)
+cleanData = plantTraits
+## Calculation of a dissimilarity matrix
+library(cluster)
+dataDist <- daisy(cleanData, metric = "gower",
+               type = list(ordratio = 4:11, symm = 12:13, asymm = 14:31))
+
+## Hierarchical classification
+agn.trts <- agnes(dataDist, diss=TRUE, method="complete")
+plot(agn.trts, which.plots = 2, cex= 0.6)
+
+k = 3
+cutree6 <- cutree(agn.trts, k=k)
+cutree6
+
+## Principal Coordinate Analysis
+cmdsdai.b <- cmdscale(dataDist, k=k)
+plot(cmdsdai.b[, 1:2], asp = 1, col = cutree6)
+```
+
+Fuzzy Clusters/fanny
+```{r}
+fannyClusters <- fanny(dataDist, diss = TRUE, k = 4, memb.exp = 1.5)
+plot(fannyClusters)
+```
+
