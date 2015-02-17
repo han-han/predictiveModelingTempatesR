@@ -1,0 +1,109 @@
+---
+title: "Clustering Template"
+author: "Sophia Gao"
+date: "February 16, 2015"
+output: html_document
+---
+
+```{r setUp,render=FALSE}
+# libraries
+library(rattle) # delete
+
+library(dplyr)
+library(corrplot)
+library(NbClust)
+library(Hmisc)
+
+# project path
+folderPath <- "~/Projects/predictiveModelingTempatesR/clustering"
+setwd(folderPath)
+dataRead <- "test.csv"
+dataWrite <- "output.csv"
+```
+
+```{r import Data}
+# rawData = read.csv(dataRead, header=TRUE, sep = ",")
+data(wine, package="rattle")
+rawData <- wine[-1]
+
+# dplyr
+rawData <- tbl_df(rawData)
+
+# variable name list
+varNames <- names(rawData)
+varNames
+keysVarNames <- NULL
+predVarNames = varNames[!(varNames %in% c(keysVarNames))]
+charVarNames <- predVarNames[sapply(rawData[,predVarNames],is.character)]
+numVarNames <- setdiff(predVarNames,charVarNames)
+```
+
+## Data Quality Investigation
+```{r dataQuality,echo=TRUE}
+# Duplicated "ID"s(Rows)
+# Group by "ID"s
+# Columns you want to group by
+grp_cols <- predVarNames
+# Convert character vector to list of symbols
+dots <- lapply(grp_cols,as.symbol)
+# Perform frequency counts
+counts <- rawData %>% group_by_(.dots=dots) %>% summarise(count = n())
+describe(counts$count)
+
+# Summary of Variables
+describe(rawData)
+
+# missing rate of all the variables
+missingRate <- function(x){
+    sum(is.na(x))/length(x)
+}
+
+missingRateV = sapply(rawData,missingRate)
+missingRateV[missingRateV>0.01]
+```
+
+```{r pre-processing, include=FALSE}
+cleanData <- scale(rawData)
+```
+
+
+K-Means Clustering
+```{r}
+wssplot <- function(data, nc=15, seed=1234){
+               wss <- (nrow(data)-1)*sum(apply(data,2,var))
+               for (i in 2:nc){
+                    set.seed(seed)
+                    wss[i] <- sum(kmeans(data, centers=i)$withinss)}
+                plot(1:nc, wss, type="b", xlab="Number of Clusters",
+                     ylab="Within groups sum of squares")
+               }
+
+```
+
+```{r}
+wssplot(cleanData)
+```
+There is a distinct drop in within groups sum of squares when moving from 1 to 3 clusters. After three clusters, this decrease drops off, suggesting that a 3-cluster solution may be a good fit to the data. 
+
+NbClust
+NbClust package provides 30 indices for determining the number of clusters and proposes to user the best clustering scheme from the different results obtained by varying all combinations of number of clusters, distance measures, and clustering methods.
+
+```{r}
+set.seed(1234)
+nc <- NbClust(cleanData, min.nc = 2, max.nc = 15, method = "kmeans")
+table(nc$Best.n[1,])
+barplot(table(nc$Best.n[1,]), 
+          xlab="Numer of Clusters", ylab="Number of Criteria",
+          main="Number of Clusters Chosen by 26 Criteria")
+```
+14 of 24 criteria provided by the NbClust package suggest a 3-cluster solution. 
+
+A final cluster solution
+```{r}
+set.seed(1234)
+fit.km <- kmeans(cleanData, 3, nstart=25)                           
+fit.km$size
+fit.km$centers  
+
+aggregate(cleanData, by=list(cluster=fit.km$cluster), mean)
+```

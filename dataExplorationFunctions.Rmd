@@ -1,0 +1,76 @@
+---
+title: "Data Exploration Functions"
+author: "Sophia Gao"
+date: "February 15, 2015"
+output: html_document
+---
+
+## Sorting
+```{r}
+X = data.frame(var1 = c(1:5), var2 = c(10, NA,NA,9,6), var3 = c(11,15,12,13,14))
+X[order(X$var1,X$var3),]
+```
+
+## Adding rows and columns
+
+## Make table
+```{r}
+table(X$var2,useNA="ifany")
+```
+
+## Check up missing values
+```{r}
+colSums(is.na(X))/dim(X)[1]
+```
+
+## Cross tabs
+```{r}
+xtabs(X ~ var1 + var2, data=DF)
+# flat tables
+ftable(Titanic, row.vars = 1:3)
+```
+
+## Check the size of the data
+```{r}
+fakeData = rnorm(1e5)
+print(object.size(fakeData),units="Mb")
+```
+
+## Create new variables
+```{r}
+# New Groups
+restData$nearMe = restData$neighborhood %in% c("Roland Park","Homeland")
+
+# Create Binary Variables
+?ifelse(var1>1,TRUE,FALSE)
+
+# Create categorical variables
+restData$zipGroups = cut(restData$zipCode, breaks=quantile(restData$zipCode))
+# Easier cutting
+library(Hmisc)
+restData$zipGroups = cut2(restData$zipCode,g=4)
+
+# Creating factor variable
+restData$zcf <- factor(restData$zipCode)
+# Levels of factor variables
+yesno <- sample(c("yes","no"),size=10,replace=TRUE)
+yesnofac = factor(yesno,levels=c("yes","no"))
+relevel(yesnofac,ref="yes")
+```
+
+## Reshape Data
+```{r}
+# Melting data frames
+library("reshape")
+mtcars$carname <- rownames(mtcars)
+carMelt <- melt(mtcars,id=c("carname","gear","cyl"),measure.vars=c("mpg","hp"))
+head(carMelt,n=3)
+```
+
+## dplyr
+* select
+* filter 
+* rename
+* group_by
+* summarise
+

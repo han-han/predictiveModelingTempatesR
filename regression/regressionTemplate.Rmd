@@ -1,22 +1,239 @@
 ---
-title: "Regression Template in R"
+title: "Regression Template with R"
 author: "Sophia Gao"
 date: "February 15, 2015"
 output: html_document
 ---
 
-```{r setUp,render=False}
+```{r setUp,render=FALSE}
 # libraries
+library(AppliedPredictiveModeling)
 library(caret)
+library(dplyr)
+library(Hmisc)
+library(corrplot)
+
+# plot setting
+AppliedPredictiveModeling::transparentTheme(trans = .4) 
 
 # project path
-folderPath = "/Desktop/PredictiveModelingTemplates/regression"
+folderPath <- "~/Projects/predictiveModelingTempatesR/regression"
 setwd(folderPath)
-dataRead = "/data/test.csv"
-dataWrite = "/data/output.csv"
+dataRead <- "test.csv"
+dataWrite <- "output.csv"
 ```
 
-```{r importData,render=False}
+
+```{r importData,render=FALSE}
+# rawData = read.csv(dataRead, header=TRUE, sep = ",")
+data(concrete)
+rawData = concrete
+str(rawData)
+# dplyr
+rawData <- tbl_df(rawData)
+
+# variable name list
+varNames <- names(rawData)
+varNames
+keysVarNames <- NULL
+targetVarName <- "CompressiveStrength"
+weightVarName <- NULL
+predVarNames = varNames[!(varNames %in% c(keysVarNames,targetVarName,weightVarName))]
+charVarNames <- predVarNames[sapply(rawData[,predVarNames],is.character)]
+numVarNames <- setdiff(predVarNames,charVarNames)
+```
+
+## Data Quality Investigation
+```{r dataQuality,echo=TRUE}
+# Duplicated "ID"s(Rows)
+# Group by "ID"s
+# Columns you want to group by
+grp_cols <- predVarNames
+# Convert character vector to list of symbols
+dots <- lapply(grp_cols,as.symbol)
+# Perform frequency counts
+counts <- rawData %>% group_by_(.dots=dots) %>% summarise(count = n())
+describe(counts$count)
+
+# Summary of Variables
+
+describe(rawData)
+
+# missing rate of all the variables
+missingRate <- function(x){
+    sum(is.na(x))/length(x)
+}
+
+missingRateV = sapply(rawData,missingRate)
+missingRateV[missingRateV>0.01]
+```
+
+```{r cleanData 1,echo=FALSE}
+
+# averging the replicated mixtures?
+cleanData <- rawData %>% group_by_(.dots=dots) %>% summarise(count = n(),CompressiveStrength = mean(CompressiveStrength,na.rm=TRUE))
+glimpse(cleanData)  
+
+describe(cleanData)
+cleanData = data.frame(cleanData)
+```
+
+## Simple Analysis with Visualization
+```{r Univariate Analysis, echo=FALSE}
+
+# Distribution of Target
+y <- cleanData[,targetVarName]
+
+histogram(y,xlab=targetVarName,main=paste("Histogram of",targetVarName),breaks=50)
+
+# exclude outliers 
+probs = c(0.01,0.99)
+qs <- quantile(y,probs = probs)
+names(qs) = probs
+histogram(y,xlab=targetVarName,main=paste("Histogram of",targetVarName),breaks=50,subset=(y>qs[1] & y<qs[2]))
+
+## Univariate Analysis
+# Scatter plot is good if the data set is relatively small
+theme1 <- trellis.par.get()
+theme1$plot.symbol$col = rgb(.2, .2, .2, .4)
+theme1$plot.symbol$pch = 16
+theme1$plot.line$col = rgb(1, 0, 0, .7)
+theme1$plot.line$lwd <- 2
+trellis.par.set(theme1)
+
+featurePlot(x = cleanData[,predVarNames], y = cleanData[,targetVarName],
+            between = list(x=1, y=1),
+            ## Add a background grid ('g') and a smoother ('smooth')
+            type = c("g","p","smooth"))
+
+## Correlation Matrix
+corrplot::corrplot(cor(cleanData[, numVarNames]), 
+                   order = "hclust", 
+                   tl.cex = .8,
+                   title = "Correlation Matrix of Numeric Predictive Variables")
 
 ```
+
+## Pre-Processing
+1. Zero- and Near Zero-Variance Predictors
+2. Identifying Correlated Predictors 
+3. Linear Dependencies
+```{r pre-processing, include=FALSE}
+## Creating model.matrix with dummy variables
+excludeVars <- NULL #exclude character variables might needed
+selPredVarNames <- predVarNames[!(predVarNames %in% excludeVars)]
+
+formula <- as.formula(paste(targetVarName,"~",paste(selPredVarNames,collapse='+')))
+formula
+
+allData <- data.frame(model.matrix(formula, data=cleanData))[,-1]
+
+## Zero- and Near Zero-Variance Predictors
+### Pay attention to the situations where the target is highly unbalanced.
+### We might be able to use the 1% difference for prediction. Investigate later
+nzv <- nearZeroVar(allData, freqCut = 99/1, uniqueCut = 1,saveMetrics = TRUE)
+nzv[nzv$nzv,]
+nzv <- nearZeroVar(allData, freqCut = 99/1, uniqueCut = 1)
+
+if(length(nzv) > 0){
+    filteredData <- allData[,-nzv]
+}else{
+    filteredData <- allData
+}
+
+
+## Identifying Correlated Predictors
+### |correlation|>0.9
+dataCor <- cor(filteredData)
+highCorr <- sum(abs(dataCor[upper.tri(dataCor)]) > .9)
+highCorr
+summary(dataCor[upper.tri(dataCor)])
+
+highlyCor <- findCorrelation(dataCor, cutoff=0.9, verbose=FALSE)
+names(filteredData)[highlyCor]
+
+if(length(highlyCor) > 0){
+    filteredData <- filteredData[,-highlyCor]
+}
+
+## Linear Dependencies
+comboInfo <- findLinearCombos(filteredData)
+comboInfo
+if(!is.null(comboInfo$remove)){
+    names(filteredData)[comboInfo[[1]][[1]]]
+    filteredData <- filteredData[,-comboInfo$remove]
+}
+
+### Original model data dim
+dim(allData)
+### Filtered Data
+dim(filteredData)
+
+## Keep the more meaningful variables
+varsToDrop = c(setdiff(names(allData),names(filteredData))) 
+# might need to change manually
+varsToDrop
+
+selPredVarNamesbyPreP <- setdiff(selPredVarNames,varsToDrop)
+selPredVarNamesbyPreP
+
+rm(allData)
+# rm(filteredData)
+rm(dataCor)
+```
+
+## Data Splitting
+Create balanced splits of the data with createDataPartition function and preserve the overall distribution of the data. 80/20 split of the data (train/test).
+```{r Data Splitting,echo=FALSE}
+## Simple Splitting Based on the Outcome
+set.seed(1234)
+trainIndex <- createDataPartition(cleanData[,targetVarName], p = 0.8, list = FALSE, times = 1)
+
+trainData <- cleanData[ trainIndex,]
+trainX <- trainData[,selPredVarNamesbyPreP]
+trainY <- trainData[,targetVarName]
+
+testData <- cleanData[-trainIndex,]
+testX <- testData[,selPredVarNamesbyPreP]
+testY <- testData[,targetVarName]
+```
+
+```{r Additional Data Processing,echo=FALSE}
+## Centering and Scaling
+## Imputation
+## Transforming Predictors
+
+```
+
+## Modeling
+```{r modelSetUp,include=FALSE}
+ctrl <- trainControl(method = "cv", number = 10, repeats = 1)
+# plot setting
+AppliedPredictiveModeling::transparentTheme(trans = 1) 
+```
+
+### Elastic-Net and Variable Selection
+The advantage of elastic net is that it enables effective regularization via the ridge-type penalty with the feature selection quality of the lasso penalty.
+
+```{r Elastic-Net}
+enetGrid <- expand.grid(.lambda = c(0,0.01,0.1),
+                        .fraction = seq(.05,1,length = 10))
+set.seed(100)
+enetTune <- train(trainX, trainY,
+                  method = "enet",
+                  tuneGrid = enetGrid,
+                  trControl = ctrl,
+                  preProc = c("center", "scale"))
+
+plot(enetTune)
+```
+
+### Generalized Linear Model
+```{r}
+
+```
+
+### Random Forest
+
+### Stochastic Gradient Boosting 
 
